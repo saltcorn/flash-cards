@@ -15,6 +15,7 @@ const {
   domReady,
   i,
   text_attr,
+  button,
 } = require("@saltcorn/markup/tags");
 
 const {
@@ -90,7 +91,7 @@ const run = async (
 ) => {
   const table = await Table.findOne({ id: table_id });
   const fields = await table.getFields();
-  const is_back = !!state._back;
+  const is_back = state._side === "back";
   readState(state, fields);
   const show_view = is_back ? back_view : front_view;
   const sview = await View.findOne({ name: show_view });
@@ -102,18 +103,23 @@ const run = async (
     );
   const qstate = await stateFieldsToWhere({ fields, state });
   const q = await stateFieldsToQuery({ state, fields });
-  const rows = await tbl.getJoinedRows({
-    where: qstate,
+  const rows = await table.getRows(qstate, {
     ...q,
     limit: 1,
     orderBy: "RANDOM()",
   });
 
   if (rows.length === 0) return "No cards found";
+  const id = rows[0].id;
 
-  const sresp = await sview.run({ id: rows[0].id }, extraArgs);
-
-  return div({ class: "flashcard" }, sresp);
+  const sresp = await sview.run({ id }, extraArgs);
+  const onClick = is_back
+    ? `set_state_fields({_side: 'front', id: ${id}})`
+    : `set_state_fields({_side: 'back', id: ${id}})`;
+  return (
+    div({ class: "flashcard", onClick }, sresp) +
+    button({ class: "btn", onClick: `unset_state_field('id')` }, "NEXT")
+  );
 };
 
 module.exports = {
