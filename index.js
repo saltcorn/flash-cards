@@ -123,7 +123,10 @@ const run = async (
   if (rows.length === 0 && state.id)
     //probably changed filter on back
     return button(
-      { class: "btn btn-primary", onClick: `unset_state_field('id')` },
+      {
+        class: "btn btn-primary",
+        onClick: `set_state_fields({_side: 'front', id: {unset: true}})`,
+      },
       "START"
     );
   if (rows.length === 0) return "No cards found";
