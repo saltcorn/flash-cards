@@ -60,6 +60,16 @@ const configuration_workflow = () =>
                   options: show_view_opts.join(),
                 },
               },
+              {
+                name: "after_back",
+                label: "When clicking back",
+                input_type: "select",
+                required: true,
+                options: [
+                  { label: "Next card", value: "next" },
+                  { label: "Front card, with 'Next' button", value: "front" },
+                ],
+              },
             ],
           });
         },
@@ -85,13 +95,14 @@ const readState = (state, fields) => {
 const run = async (
   table_id,
   viewname,
-  { front_view, back_view },
+  { front_view, back_view, after_back },
   state,
   extraArgs
 ) => {
   const table = await Table.findOne({ id: table_id });
   const fields = await table.getFields();
   const is_back = state._side === "back";
+  const after_back_next = after_back === "next";
   readState(state, fields);
   const show_view = is_back ? back_view : front_view;
   const sview = await View.findOne({ name: show_view });
@@ -109,16 +120,27 @@ const run = async (
     orderBy: "RANDOM()",
   });
 
+  if (rows.length === 0 && state.id)
+    //probably changed filter on back
+    return button(
+      { class: "btn btn-primary", onClick: `unset_state_field('id')` },
+      "START"
+    );
   if (rows.length === 0) return "No cards found";
   const id = rows[0].id;
 
   const sresp = await sview.run({ id }, extraArgs);
-  const onClick = is_back
-    ? `set_state_fields({_side: 'front', id: ${id}})`
-    : `set_state_fields({_side: 'back', id: ${id}})`;
+  const onClick =
+    is_back && after_back_next
+      ? `set_state_fields({_side: 'front', id: {unset: true}})`
+      : is_back
+      ? `set_state_fields({_side: 'front', id: ${id}})`
+      : `set_state_fields({_side: 'back', id: ${id}})`;
   return (
     div({ class: "flashcard", onClick }, sresp) +
-    button({ class: "btn", onClick: `unset_state_field('id')` }, "NEXT")
+    (after_back_next
+      ? ""
+      : button({ class: "btn", onClick: `unset_state_field('id')` }, "NEXT"))
   );
 };
 
